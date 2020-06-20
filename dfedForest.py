@@ -146,7 +146,7 @@ class dfedForest(object):
         # Compute all votes
         for index in range(len(votes[0])):
             for member in votes:
-                if member[index] == 1:
+                if int(member[index]) == 1:
                     voteCompute[index][0] += 1
                 else:
                     voteCompute[index][1] += 1
