@@ -61,8 +61,8 @@ class dfedForest(object):
                 self.forestList.append(loads(readFile.read()))            
  
     # Generate a new tree based on a dataset
-    def createTree(self):
-        self.newTree = tree.DecisionTreeRegressor()
+    def createTree(self,depth):
+        self.newTree = tree.DecisionTreeClassifier(max_depth=depth)
         self.newTree = self.newTree.fit(self.data, self.label)
     
     # Show all tree on the list
