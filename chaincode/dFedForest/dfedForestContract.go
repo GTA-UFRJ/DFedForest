@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
-    "encoding/json"
-    "github.com/golang-collections/go-datastructures/queue"
     "github.com/hyperledger/fabric-chaincode-go/shim"
     pb "github.com/hyperledger/fabric-protos-go/peer"
 )
@@ -45,6 +42,7 @@ func main() {
 
 // Initialize the smart contract with 2 organizations and their respective assets
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+    return shim.Success(nil)
 }
 
 // Define invocable functions on the smart contract
