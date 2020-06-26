@@ -13,7 +13,7 @@ import sys
 
 class dfedForest(object):
     # not finished
-    def __init__(self,forestList=[],forestPath="treeModels",tiebreaker=0,minervaTree=0,data=[],label=[]):
+    def __init__(self,forestList=[],forestPath="treeModels",tiebreaker=0,minervaTree=0,data=[],label=[],threshhold=0.7):
         
         # Path to load trees
         self.forestPath = forestPath
@@ -34,13 +34,16 @@ class dfedForest(object):
         self.seedPath = "garden"
         
         # Metrics of the classification
-        self.metricsList = [0,0,0,0]    
+        self.metricsList = [0,0,0,0,0]    
 
         # Tiebreaker criteria: 0 always negative; 1 always positive; 2 random; 3 minervaTree vote
         self.tiebreaker = tiebreaker
 
         # ID of the minervaTree on the list
         self.minervaTree = minervaTree
+
+        # Minimun score to add a new tree
+        self.threshhold = threshhold
    
         # Dataset
         self.data = data
@@ -97,32 +100,48 @@ class dfedForest(object):
                     FP += 1
                 else:
                     FN += 1
-        #if TP != 0 or TN != 0:
         self.metricsList[1] = TP/(TP+FP)
-        #if TP != 0 or FN != 0:
         self.metricsList[2] = TP/(TP+FN)
-        #if TP != 0 or FN != 0 or TP != 0 or TN != 0:
-        self.metricsList[0] = (TP+TN)/(TP+TN+FP+FN)
-        #if self.metricsList[1] != 0 or self.metricsList[2] != 0:
+        self.metricsList[4] = TN/(TN+FP)
+        self.metricsList[0] = (TP+TN)/(TP+TN+FP+FN) 
         self.metricsList[3] = (2*self.metricsList[1]*self.metricsList[2])/(self.metricsList[1]+self.metricsList[2])
         print (TP,TN,FP,FN)            
 
     # Show the current metrics of a classification
     def getMetrics(self):
-        print("Acc: "+str(self.metricsList[0])+" Prec: "+str(self.metricsList[1])+" Rec: "+str(self.metricsList[2])+" F1: "+str(self.metricsList[3])+"\n")
+        print("Accuracy: "+str(self.metricsList[0])+" Precision: "+str(self.metricsList[1])+" Recall: "+str(self.metricsList[2])+" Sensitivity: "+str(self.metricsList[4])+" F1: "+str(self.metricsList[3])+"\n")
 
     # publish the tree on the blockchain
     def publishTree(self,newTree):
         new = base64.b64encode(dumps(newTree))
-        cmd = "docker exec cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"issueAdvertisement\",\"SeiLa\",\"Dados de Sensores IoT\",\"10\",\"IoT\",\"10.0.0.1\",\""+new+"\"]}\'"
+        cmd = "docker exec cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"issueAdvertisement\",\""+new+"\",\"10\"]}\'"
         system(cmd)
-
-    def queryTree(self,tx, fileToSave):
+    
+    # Query a specific tree and add to the forest
+    def queryTreeAndAppend(self,tx, fileToSave):
         system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > "+fileToSave)
         transaction = open(fileToSave,"r").readline()
-        newTree = loads(base64.b64decode(transaction.split("\\\"")[37]))
+        newTree = loads(base64.b64decode(transaction.split("\\\"")[17]))
         self.forestList.append(newTree)
+    
+    # Query a specififc tree to test  before add to the forest
+    def queryTreeForTest(self,tx,fileToSave):
+        system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > "+fileToSave)
 
+    # Test a new tree
+    def testTree(self,tree):
+        prediction = tree.predict(self.data)
+        self.setMetrics(self.label,prediction)
+        self.getMetrics()
+
+    # Check if the tree is well trained to add in the forest
+    def checkTree(self,file_tree):
+        t = open(file_tree,"r").readline()
+        newTree = loads(base64.b64decode(t.split("\\\"")[17]))
+        self.testTree(newTree)
+        if(float(self.metricsList[0]) >= self.threshhold):
+            self.forestList.append(newTree)
+                
 
     # Remove a tree from the forestList
     def removeTree(self,treeID):
