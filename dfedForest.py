@@ -71,7 +71,7 @@ class dfedForest(object):
         
     def createRandomTree(self,depth):
         self.newRandomTree = RandomForestClassifier(n_estimators=1,max_depth=depth)
-        self.newRandomTree = self.newTree.fit(self.data, self.label)
+        self.newRandomTree = self.newRandomTree.fit(self.data, self.label)
     
     # Show all tree on the list
     def getTrees(self):
