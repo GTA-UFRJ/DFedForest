@@ -5,6 +5,7 @@ from os import listdir
 from os import system
 from random import randint
 from sklearn import tree
+from sklearn.ensemble import RandomForestClassifier
 import base64
 import sys
 
@@ -48,6 +49,8 @@ class dfedForest(object):
         self.label = label
 
     def load_dataset(self,fileName):
+        self.data = []
+        self.label = []
         with open(fileName, "r") as readData:
             for line in readData:
                 self.data.append(line.split(",")[5:-1])
@@ -55,6 +58,7 @@ class dfedForest(object):
 
     # Update the list of trees with the models on treesPath directory
     def loadForest(self):
+        self.forestList = []
         allTrees = listdir(self.forestPath) 
         for name in allTrees:
             with open(self.forestPath+"/"+name, "rb") as readFile:
@@ -64,6 +68,10 @@ class dfedForest(object):
     def createTree(self,depth):
         self.newTree = tree.DecisionTreeClassifier(max_depth=depth)
         self.newTree = self.newTree.fit(self.data, self.label)
+        
+    def createRandomTree(self,depth):
+        self.newRandomTree = RandomForestClassifier(n_estimators=1,max_depth=depth)
+        self.newRandomTree = self.newTree.fit(self.data, self.label)
     
     # Show all tree on the list
     def getTrees(self):
@@ -90,7 +98,7 @@ class dfedForest(object):
                 else:
                     FN += 1
         #if TP != 0 or TN != 0:
-        self.metricsList[1] = TP/(TP+TN)
+        self.metricsList[1] = TP/(TP+FP)
         #if TP != 0 or FN != 0:
         self.metricsList[2] = TP/(TP+FN)
         #if TP != 0 or FN != 0 or TP != 0 or TN != 0:
