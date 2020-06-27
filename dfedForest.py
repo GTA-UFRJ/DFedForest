@@ -111,22 +111,32 @@ class dfedForest(object):
     def getMetrics(self):
         print("Accuracy: "+str(self.metricsList[0])+" Precision: "+str(self.metricsList[1])+" Recall: "+str(self.metricsList[2])+" Sensitivity: "+str(self.metricsList[4])+" F1: "+str(self.metricsList[3])+"\n")
 
-    # publish the tree on the blockchain
-    def publishTree(self,newTree):
-        new = base64.b64encode(dumps(newTree))
-        cmd = "docker exec cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"issueAdvertisement\",\""+new+"\",\"10\"]}\'"
+    # publish the tree location on the blockchain
+    def publishTree(self,url):
+        cmd = "docker exec cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"issueAdvertisement\",\""+url+"\",\"10\"]}\'"
         system(cmd)
     
     # Query a specific tree and add to the forest
     def queryTreeAndAppend(self,tx, fileToSave):
-        system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > "+fileToSave)
-        transaction = open(fileToSave,"r").readline()
-        newTree = loads(base64.b64decode(transaction.split("\\\"")[17]))
+        system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > temp.txt")
+        transaction = open("temp.txt","r").readline()
+        url = transaction.split("\\\"")[17]
+        system("wget "+url+" -O "+fileToSave)
+        f = open(fileToSave,"rb")
+        newTree = loads(f.read())
+        f.close()
         self.forestList.append(newTree)
     
     # Query a specififc tree to test  before add to the forest
     def queryTreeForTest(self,tx,fileToSave):
-        system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > "+fileToSave)
+        system("docker exec -it cli peer chaincode invoke -n mycc -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n mycc -c \'{\"Args\":[\"getHistoryForTransaction\",\""+tx+"\"]}\' > temp.txt")
+        transaction = open("temp.txt","r").readline()
+        url = transaction.split("\\\"")[17]
+        system("wget "+url+" -O "+fileToSave)
+        f = open(fileToSave,"rb")
+        newTree = loads(f.read())
+        f.close()
+        return newTree
 
     # Test a new tree
     def testTree(self,tree):
@@ -136,13 +146,12 @@ class dfedForest(object):
 
     # Check if the tree is well trained to add in the forest
     def checkTree(self,file_tree):
-        t = open(file_tree,"r").readline()
-        newTree = loads(base64.b64decode(t.split("\\\"")[17]))
+        f = open(file_tree,"rb")
+        newTree = loads(f.read())
         self.testTree(newTree)
         if(float(self.metricsList[0]) >= self.threshhold):
             self.forestList.append(newTree)
                 
-
     # Remove a tree from the forestList
     def removeTree(self,treeID):
         self.forestList.remove(treeID)
@@ -202,7 +211,12 @@ class dfedForest(object):
         
 if __name__ == "__main__":
     f = dfedForest()
-    for index in range(1,len(listdir("treeData"))+1):
-        f.load_dataset("treeData/randomData"+str(index)+".csv")
-        f.createTree()
-        f.saveTree(f.newTree)
+    #for index in range(1,len(listdir("treeData"))+1):
+    #for i in [1,6,10,1000]:
+    #    #f.load_dataset("treeData/randomData"+str(index)+".csv")
+    f.load_dataset("old/tos_free.csv")
+    #    f.load_dataset("domain1_transformed.csv")
+    #    f.createTree(i)
+    #    f.saveTree(f.newTree)
+    f.createTree(None)
+    f.saveTree(f.newTree)
